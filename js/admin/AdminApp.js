@@ -12,6 +12,8 @@ export class AdminApp {
     this.brand    = new BrandSettingsService(this.auth);
     this.editor   = new ProductEditor(this.auth);
     this.orders   = new OrderManager(this.auth);
+    this._products = [];
+    this._dragSrcId = null;
   }
 
   show(name) {
@@ -30,33 +32,81 @@ export class AdminApp {
     } else {
       claimBanner.classList.add('hidden');
     }
-    const { data } = await supabase.from('products').select('*').eq('owner_id', this.auth.currentUser.id).order('name');
+    const { data } = await supabase.from('products').select('*')
+      .eq('owner_id', this.auth.currentUser.id)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false });
     const el = document.getElementById('product-list');
     if (!data || data.length === 0) {
       el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">등록된 상품이 없습니다.</p>';
       return;
     }
-    el.innerHTML = data.map(p => `
-      <div class="bg-white rounded-xl p-4 flex items-center gap-4 ${p.is_hidden ? 'opacity-50' : ''}">
-        <div class="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
-          ${p.images?.[0]
-            ? `<img src="${p.images[0]}" class="w-full h-full object-cover">`
-            : '<div class="w-full h-full flex items-center justify-center text-gray-300 text-xs">없음</div>'}
-        </div>
-        <div class="flex-1 min-w-0">
-          <p class="font-medium text-sm truncate">${p.name || '(이름 없음)'}${p.is_hidden ? ' <span class="text-xs text-gray-400 font-normal">(숨김)</span>' : ''}</p>
-          <p class="text-xs text-gray-400 mt-0.5">${(p.price || 0).toLocaleString()}원 · 배송비 ${(p.shipping_fee || 0).toLocaleString()}원</p>
-          ${p.description ? `<p class="text-xs text-gray-400 mt-0.5 truncate">${p.description}</p>` : ''}
-          ${(p.sizes?.length || p.colors?.length) ? `<p class="text-xs text-gray-300 mt-0.5">${[p.sizes?.join(' · '), p.colors?.join(' · ')].filter(Boolean).join(' / ')}</p>` : ''}
-        </div>
-        <div class="flex items-center gap-2 shrink-0">
-          <button onclick="copyLink('${p.id}')" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">링크 복사</button>
-          <button onclick="toggleHidden('${p.id}', ${p.is_hidden})" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">${p.is_hidden ? '표시' : '숨김'}</button>
-          <button onclick="openEditor('${p.id}')" class="text-xs bg-black text-white rounded-lg px-3 py-1.5 hover:bg-gray-800">편집</button>
-          <button onclick="deleteProduct('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')" class="text-xs border border-red-200 text-red-500 rounded-lg px-3 py-1.5 hover:bg-red-50">삭제</button>
-        </div>
+    this._products = data;
+    el.innerHTML = data.map(p => this._productRow(p)).join('');
+    this._initDragDrop(el);
+  }
+
+  _productRow(p) {
+    return `<div class="bg-white rounded-xl p-4 flex items-center gap-4 ${p.is_hidden ? 'opacity-50' : ''}" draggable="true" data-id="${p.id}">
+      <div class="shrink-0 cursor-grab active:cursor-grabbing text-gray-300 select-none px-1">⠿</div>
+      <div class="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
+        ${p.images?.[0]
+          ? `<img src="${p.images[0]}" class="w-full h-full object-cover">`
+          : '<div class="w-full h-full flex items-center justify-center text-gray-300 text-xs">없음</div>'}
       </div>
-    `).join('');
+      <div class="flex-1 min-w-0">
+        <p class="font-medium text-sm truncate">${p.name || '(이름 없음)'}${p.is_hidden ? ' <span class="text-xs text-gray-400 font-normal">(숨김)</span>' : ''}</p>
+        <p class="text-xs text-gray-400 mt-0.5">${(p.price || 0).toLocaleString()}원 · 배송비 ${(p.shipping_fee || 0).toLocaleString()}원</p>
+        ${p.description ? `<p class="text-xs text-gray-400 mt-0.5 truncate">${p.description}</p>` : ''}
+        ${(p.sizes?.length || p.colors?.length) ? `<p class="text-xs text-gray-300 mt-0.5">${[p.sizes?.join(' · '), p.colors?.join(' · ')].filter(Boolean).join(' / ')}</p>` : ''}
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button onclick="copyLink('${p.id}')" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">링크 복사</button>
+        <button onclick="toggleHidden('${p.id}', ${p.is_hidden})" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">${p.is_hidden ? '표시' : '숨김'}</button>
+        <button onclick="openEditor('${p.id}')" class="text-xs bg-black text-white rounded-lg px-3 py-1.5 hover:bg-gray-800">편집</button>
+        <button onclick="deleteProduct('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')" class="text-xs border border-red-200 text-red-500 rounded-lg px-3 py-1.5 hover:bg-red-50">삭제</button>
+      </div>
+    </div>`;
+  }
+
+  _initDragDrop(el) {
+    el.addEventListener('dragstart', e => {
+      const row = e.target.closest('[data-id]');
+      if (!row) return;
+      this._dragSrcId = row.dataset.id;
+      row.classList.add('opacity-40');
+    });
+    el.addEventListener('dragend', e => {
+      const row = e.target.closest('[data-id]');
+      if (row) row.classList.remove('opacity-40');
+      el.querySelectorAll('[data-id]').forEach(r => r.classList.remove('border-t-2', 'border-black'));
+    });
+    el.addEventListener('dragover', e => {
+      e.preventDefault();
+      const row = e.target.closest('[data-id]');
+      el.querySelectorAll('[data-id]').forEach(r => r.classList.remove('border-t-2', 'border-black'));
+      if (row && row.dataset.id !== this._dragSrcId) row.classList.add('border-t-2', 'border-black');
+    });
+    el.addEventListener('drop', async e => {
+      e.preventDefault();
+      const targetRow = e.target.closest('[data-id]');
+      if (!targetRow || targetRow.dataset.id === this._dragSrcId) return;
+
+      const srcIdx = this._products.findIndex(p => p.id === this._dragSrcId);
+      const tgtIdx = this._products.findIndex(p => p.id === targetRow.dataset.id);
+      if (srcIdx === -1 || tgtIdx === -1) return;
+
+      const reordered = [...this._products];
+      const [moved] = reordered.splice(srcIdx, 1);
+      reordered.splice(tgtIdx, 0, moved);
+
+      this._products = reordered;
+      el.innerHTML = reordered.map(p => this._productRow(p)).join('');
+      this._initDragDrop(el);
+
+      const updates = reordered.map((p, i) => ({ id: p.id, sort_order: i }));
+      await supabase.from('products').upsert(updates);
+    });
   }
 
   _bindGlobals() {

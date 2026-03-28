@@ -4,7 +4,7 @@ const PAGE_SIZE = 10;
 
 export class ProductService {
   constructor() {
-    this.cursor = null;
+    this.page = 0;
     this.done = false;
     this.loading = false;
     this.observer = null;
@@ -13,23 +13,23 @@ export class ProductService {
   async fetchNextPage(brandId) {
     if (this.done || this.loading) return;
     this.loading = true;
-    let q = supabase.from('products').select('*')
+    const from = this.page * PAGE_SIZE;
+    const { data, error } = await supabase.from('products').select('*')
       .eq('owner_id', brandId)
       .eq('is_hidden', false)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false })
-      .limit(PAGE_SIZE);
-    if (this.cursor) q = q.lt('created_at', this.cursor);
-    const { data, error } = await q;
+      .range(from, from + PAGE_SIZE - 1);
     this.loading = false;
     if (error) { console.error('[shop]', error); return; }
     const grid = document.getElementById('shop-grid');
     if (!data || data.length === 0) {
-      if (!this.cursor) grid.innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">등록된 상품이 없습니다.</p>';
+      if (this.page === 0) grid.innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">등록된 상품이 없습니다.</p>';
       this.done = true;
       return;
     }
     grid.insertAdjacentHTML('beforeend', data.map(p => this._card(p)).join(''));
-    this.cursor = data[data.length - 1].created_at;
+    this.page++;
     if (data.length < PAGE_SIZE) this.done = true;
   }
 
@@ -39,7 +39,7 @@ export class ProductService {
   }
 
   reset() {
-    this.cursor = null;
+    this.page = 0;
     this.done = false;
     this.loading = false;
     if (this.observer) { this.observer.disconnect(); this.observer = null; }
