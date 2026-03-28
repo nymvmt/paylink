@@ -13,6 +13,9 @@
   </style>
 </head>
 <body class="bg-white text-gray-900 min-h-screen">
+<div id="app-loader" class="fixed inset-0 bg-white flex items-center justify-center z-50">
+  <div class="w-6 h-6 border-2 border-gray-200 border-t-gray-800 rounded-full animate-spin"></div>
+</div>
 
 <!-- ===== HEADER ===== -->
 <header class="sticky top-0 bg-white border-b border-gray-100 z-30">
@@ -24,7 +27,7 @@
 
 <!-- ===== SCREEN: SHOP ===== -->
 <div id="screen-shop" class="hidden max-w-md mx-auto px-4 py-8">
-  <h1 class="text-xl font-bold mb-6">상품 목록</h1>
+  <h1 id="shop-title" class="text-xl font-bold mb-6">브랜드 목록</h1>
   <div id="shop-grid" class="grid grid-cols-2 gap-3"></div>
 </div>
 
@@ -213,6 +216,7 @@
   import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
 
   const cfg = await fetch('/api/config').then(r => r.json());
+  document.getElementById('app-loader').remove();
   const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const TOSS_CLIENT_KEY = cfg.tossClientKey;
 
@@ -349,8 +353,18 @@
   // ===== SHOP =====
   async function loadShop() {
     showScreen('shop');
+    document.getElementById('shop-title').textContent = brandId ? '상품 목록' : '브랜드 목록';
     if (!brandId) {
-      document.getElementById('shop-grid').innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">브랜드 링크로 접속해주세요.</p>';
+      const { data: brands } = await supabase.from('settings').select('owner_id, value').eq('key', 'brand_name');
+      const grid = document.getElementById('shop-grid');
+      if (!brands || brands.length === 0) {
+        grid.innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">등록된 브랜드가 없습니다.</p>';
+      } else {
+        grid.innerHTML = brands.map(b => `
+          <a href="/?brand=${b.owner_id}" class="col-span-1 border border-gray-100 rounded-xl p-6 flex items-center justify-center text-sm font-medium hover:border-gray-300 hover:bg-gray-50 transition-colors">
+            ${b.value}
+          </a>`).join('');
+      }
       return;
     }
     const { data } = await supabase.from('products').select('*').eq('owner_id', brandId).eq('is_hidden', false).order('name');
