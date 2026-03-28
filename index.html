@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paylink</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <style>
+    #cart-drawer { transition: transform 0.3s ease; }
+    #cart-drawer.open { transform: translateY(0); }
+    #cart-drawer.closed { transform: translateY(100%); }
+  </style>
+</head>
+<body class="bg-white text-gray-900 min-h-screen">
+
+<!-- ===== HEADER ===== -->
+<header class="sticky top-0 bg-white border-b border-gray-100 z-30">
+  <div class="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
+    <span id="site-title" class="text-base font-bold cursor-pointer" onclick="goToShop()">Paylink</span>
+    <button id="header-order-btn" onclick="showScreen('order')" class="text-xs text-gray-400 hover:text-gray-700">주문 조회</button>
+  </div>
+</header>
+
+<!-- ===== SCREEN: SHOP ===== -->
+<div id="screen-shop" class="hidden max-w-md mx-auto px-4 py-8">
+  <h1 class="text-xl font-bold mb-6">상품 목록</h1>
+  <div id="shop-grid" class="grid grid-cols-2 gap-3"></div>
+</div>
+
+<!-- ===== SCREEN: PRODUCT ===== -->
+<div id="screen-product" class="hidden max-w-md mx-auto px-4 py-8">
+  <button onclick="goBack()" class="text-sm text-gray-500 mb-6 hover:text-gray-800 block">← 목록으로</button>
+
+  <div class="relative mb-6">
+    <div class="overflow-hidden rounded-xl bg-gray-100 aspect-square">
+      <img id="slider-img" src="" alt="상품 이미지" class="w-full h-full object-cover">
+    </div>
+    <button onclick="prevSlide()" class="absolute left-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full w-8 h-8 flex items-center justify-center shadow text-gray-700">&#8249;</button>
+    <button onclick="nextSlide()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-white/80 rounded-full w-8 h-8 flex items-center justify-center shadow text-gray-700">&#8250;</button>
+    <div id="slider-dots" class="flex justify-center gap-1.5 mt-2"></div>
+  </div>
+
+  <h2 id="product-name" class="text-2xl font-bold mb-1"></h2>
+  <div class="mb-1"><span id="product-price" class="text-xl font-semibold"></span></div>
+  <p id="product-shipping" class="text-sm text-gray-500 mb-3"></p>
+  <p id="product-desc" class="text-sm text-gray-600 whitespace-pre-line mb-6 hidden"></p>
+
+  <div id="size-section" class="mb-4">
+    <p class="text-sm font-medium text-gray-600 mb-2">사이즈</p>
+    <div id="size-buttons" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <div id="color-section" class="mb-4">
+    <p class="text-sm font-medium text-gray-600 mb-2">컬러</p>
+    <div id="color-buttons" class="flex flex-wrap gap-2"></div>
+  </div>
+
+  <div class="mb-6">
+    <p class="text-sm font-medium text-gray-600 mb-2">수량</p>
+    <div class="flex items-center gap-3">
+      <button onclick="changeQty(-1)" class="w-8 h-8 border border-gray-200 rounded-lg text-lg flex items-center justify-center hover:border-gray-400">−</button>
+      <span id="qty-display" class="text-base font-medium w-6 text-center">1</span>
+      <button onclick="changeQty(1)" class="w-8 h-8 border border-gray-200 rounded-lg text-lg flex items-center justify-center hover:border-gray-400">+</button>
+    </div>
+  </div>
+
+  <button onclick="addToCart()" class="w-full bg-black text-white py-4 rounded-xl text-base font-semibold hover:bg-gray-800">담기</button>
+</div>
+
+<!-- ===== SCREEN: CHECKOUT ===== -->
+<div id="screen-checkout" class="hidden max-w-md mx-auto px-4 py-8">
+  <button onclick="goToShop()" class="text-sm text-gray-500 mb-6 hover:text-gray-800 block">← 돌아가기</button>
+  <h2 class="text-xl font-bold mb-6">주문 정보 입력</h2>
+
+  <div class="bg-gray-50 rounded-xl p-4 mb-6 text-sm">
+    <div id="summary-items" class="space-y-1 text-gray-600 mb-2"></div>
+    <p id="summary-amount" class="font-semibold mt-2"></p>
+  </div>
+
+  <div class="space-y-3 mb-6">
+    <input id="buyer-name" type="text" placeholder="이름" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400">
+    <div>
+      <input id="buyer-phone" type="tel" placeholder="연락처 (010-0000-0000)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400">
+      <p id="phone-error" class="text-red-500 text-xs mt-1 hidden">올바른 전화번호를 입력해주세요. (예: 010-1234-5678)</p>
+    </div>
+    <div class="flex gap-2">
+      <input id="addr-zonecode" type="text" placeholder="우편번호" readonly class="w-28 border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 focus:outline-none">
+      <button type="button" onclick="openAddrSearch()" class="shrink-0 border border-gray-200 rounded-xl px-4 py-3 text-sm hover:bg-gray-50">주소 검색</button>
+    </div>
+    <input id="addr-address" type="text" placeholder="주소" readonly class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm bg-gray-50 focus:outline-none">
+    <input id="addr-detail" type="text" placeholder="상세주소 (동/호수 등)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400">
+    <input id="shipping-memo" type="text" placeholder="배송 메모 (선택)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400">
+  </div>
+
+  <div class="mb-8">
+    <p class="text-sm font-medium text-gray-600 mb-3">결제수단</p>
+    <div class="space-y-2">
+      <label class="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 cursor-pointer has-[:checked]:border-black">
+        <input type="radio" name="payment-method" value="계좌이체" class="accent-black" checked>
+        <span class="text-sm">계좌이체</span>
+      </label>
+      <label class="flex items-center gap-3 border border-gray-200 rounded-xl px-4 py-3 cursor-pointer has-[:checked]:border-black">
+        <input type="radio" name="payment-method" value="가상계좌" class="accent-black">
+        <span class="text-sm">가상계좌</span>
+      </label>
+    </div>
+  </div>
+
+  <p id="checkout-error" class="text-red-500 text-sm mb-3 hidden"></p>
+  <button onclick="requestPayment()" class="w-full bg-black text-white py-4 rounded-xl text-base font-semibold hover:bg-gray-800">결제하기</button>
+</div>
+
+<!-- ===== SCREEN: SUCCESS ===== -->
+<div id="screen-success" class="hidden max-w-md mx-auto px-4 py-12 text-center">
+  <div class="text-4xl mb-4">✓</div>
+  <h2 class="text-2xl font-bold mb-1">결제 완료</h2>
+  <p class="text-gray-500 text-sm mb-6">주문이 접수되었습니다.</p>
+
+  <!-- 주문번호 강조 -->
+  <div class="bg-black text-white rounded-2xl px-5 py-4 mb-2">
+    <p class="text-xs text-gray-400 mb-1">주문번호</p>
+    <div class="flex items-center justify-between gap-3">
+      <span id="success-order-id" class="text-base font-mono font-semibold tracking-wide"></span>
+      <button onclick="copyOrderId(this)" class="shrink-0 text-xs bg-white/10 hover:bg-white/20 rounded-lg px-3 py-1.5">복사</button>
+    </div>
+  </div>
+  <p class="text-xs text-gray-400 mb-6">주문 조회 시 필요합니다. 캡처하거나 복사해두세요.</p>
+
+  <div id="virtual-account-info" class="hidden bg-blue-50 border border-blue-200 rounded-xl p-5 text-sm text-left mb-4">
+    <p class="font-semibold text-blue-800 mb-3">가상계좌 입금 정보</p>
+    <div class="space-y-1.5 text-blue-700">
+      <div class="flex justify-between"><span>은행</span><span id="va-bank" class="font-medium"></span></div>
+      <div class="flex justify-between items-center">
+        <span>계좌번호</span>
+        <div class="flex items-center gap-2">
+          <span id="va-account" class="font-mono font-medium"></span>
+          <button onclick="copyVirtualAccount(this)" class="text-xs bg-blue-200 hover:bg-blue-300 rounded px-2 py-0.5">복사</button>
+        </div>
+      </div>
+      <div class="flex justify-between"><span>입금기한</span><span id="va-due" class="font-medium"></span></div>
+    </div>
+    <p class="text-xs text-blue-500 mt-3">기한 내 입금하지 않으면 주문이 자동 취소됩니다.</p>
+  </div>
+
+  <div id="success-detail" class="bg-gray-50 rounded-xl p-5 text-sm text-left space-y-2 mb-6"></div>
+
+  <button onclick="goToOrderLookup()" class="w-full border border-gray-200 rounded-xl py-3 text-sm hover:bg-gray-50 mb-2">주문 조회</button>
+  <button id="btn-home" class="w-full border border-gray-200 rounded-xl py-3 text-sm hover:bg-gray-50">처음으로</button>
+</div>
+
+<!-- ===== SCREEN: ORDER ===== -->
+<div id="screen-order" class="hidden max-w-md mx-auto px-4 py-8">
+  <button id="btn-order-back" class="text-sm text-gray-500 mb-6 hover:text-gray-800 block">← 처음으로</button>
+  <h2 class="text-xl font-bold mb-2">주문 조회</h2>
+  <p class="text-sm text-gray-400 mb-6">결제 완료 화면의 주문번호와 연락처를 입력해주세요.</p>
+  <div class="space-y-3 mb-4">
+    <input id="order-id-input" type="text" placeholder="주문번호 (order_...)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 font-mono">
+    <input id="order-phone-input" type="tel" placeholder="연락처 (010-0000-0000)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400">
+  </div>
+  <p id="order-error" class="text-red-500 text-sm mb-3 hidden"></p>
+  <button onclick="lookupOrder()" class="w-full bg-black text-white py-3 rounded-xl text-sm font-semibold hover:bg-gray-800 mb-6">조회</button>
+  <div id="order-result" class="hidden bg-gray-50 rounded-xl p-5 text-sm space-y-2"></div>
+</div>
+
+<!-- ===== SCREEN: ERROR ===== -->
+<div id="screen-error" class="hidden max-w-md mx-auto px-4 py-16 text-center">
+  <div class="text-5xl mb-6">✕</div>
+  <h2 class="text-2xl font-bold mb-2">결제 실패</h2>
+  <p id="error-msg" class="text-gray-500 mb-8"></p>
+  <button id="btn-retry" class="w-full bg-black text-white py-3 rounded-xl text-sm">다시 시도</button>
+</div>
+
+<!-- ===== FLOATING CART BUTTON ===== -->
+<button id="cart-btn" onclick="toggleCart()" class="hidden fixed bottom-6 right-6 bg-black text-white rounded-full px-5 py-3 text-sm font-medium shadow-lg z-40">
+  장바구니 <span id="cart-badge">0</span>
+</button>
+
+<!-- ===== CART DRAWER ===== -->
+<div id="cart-overlay" onclick="closeCart()" class="hidden fixed inset-0 bg-black/30 z-40"></div>
+<div id="cart-drawer" class="closed fixed bottom-0 left-0 right-0 bg-white rounded-t-2xl shadow-xl z-50 max-w-md mx-auto">
+  <div class="p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h3 class="font-bold text-lg">장바구니</h3>
+      <button onclick="closeCart()" class="text-gray-400 hover:text-gray-700 text-xl">✕</button>
+    </div>
+    <div id="drawer-items" class="space-y-3 mb-4 max-h-60 overflow-y-auto"></div>
+    <div class="border-t border-gray-100 pt-3 mb-4 space-y-1 text-sm">
+      <div class="flex justify-between text-gray-500"><span>상품 합계</span><span id="drawer-subtotal"></span></div>
+      <div class="flex justify-between text-gray-500"><span>배송비</span><span id="drawer-shipping"></span></div>
+      <div class="flex justify-between font-semibold"><span>총 결제금액</span><span id="drawer-total"></span></div>
+    </div>
+    <button onclick="goCheckout()" class="w-full bg-black text-white py-3 rounded-xl text-sm font-semibold hover:bg-gray-800">결제하기</button>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer id="site-footer" class="hidden border-t border-gray-100 mt-16 px-4 py-10 text-xs text-gray-400 max-w-md mx-auto space-y-1.5">
+  <p id="footer-brand" class="font-medium text-gray-500"></p>
+  <p id="footer-owner"></p>
+  <p id="footer-business-number"></p>
+  <p id="footer-commerce-number"></p>
+  <p id="footer-address"></p>
+  <p id="footer-contact"></p>
+  <a id="footer-instagram" href="#" target="_blank" rel="noopener" class="hidden text-gray-400 hover:text-gray-600">Instagram</a>
+  <a id="footer-link" href="#" target="_blank" rel="noopener" class="hidden text-gray-400 hover:text-gray-600"></a>
+  <div class="border-t border-gray-100 pt-3 mt-3 text-gray-300">
+    <p>주문 취소는 배송 시작 전까지 가능하며 취소를 원하시면 위 연락처로 문의 부탁 드립니다.</p>
+  </div>
+</footer>
+
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+  const cfg = await fetch('/api/config').then(r => r.json());
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const TOSS_CLIENT_KEY = cfg.tossClientKey;
+
+  const brandId = new URLSearchParams(location.search).get('brand');
+
+  // ===== BRAND SETTINGS (헤더 + 푸터) =====
+  if (brandId) {
+    supabase.from('settings').select('key, value').eq('owner_id', brandId).then(({ data }) => {
+      const map = Object.fromEntries((data || []).map(r => [r.key, r.value]));
+
+      const name = map['brand_name']?.trim();
+      if (name) {
+        document.getElementById('site-title').textContent = name;
+        document.title = name;
+      }
+
+      const footer = document.getElementById('site-footer');
+      const set = (id, prefix, val) => {
+        if (val) { document.getElementById(id).textContent = prefix + val; }
+      };
+      set('footer-brand', '상호: ', name);
+      set('footer-owner', '대표자: ', map['owner_name']);
+      set('footer-business-number', '사업자등록번호: ', map['business_number']);
+      set('footer-commerce-number', '통신판매업 신고번호: ', map['commerce_number']);
+      set('footer-address', '주소: ', map['business_address']);
+      set('footer-contact', '고객 문의: ', map['contact_phone']);
+
+      const ig = map['instagram']?.replace(/^@/, '');
+      const igEl = document.getElementById('footer-instagram');
+      if (ig) {
+        igEl.href = `https://instagram.com/${ig}`;
+        igEl.textContent = `Instagram @${ig}`;
+        igEl.classList.remove('hidden');
+      }
+
+      const lk = map['link'];
+      const lkEl = document.getElementById('footer-link');
+      if (lk) {
+        lkEl.href = lk;
+        lkEl.textContent = lk;
+        lkEl.classList.remove('hidden');
+      }
+
+      const hasAny = ['brand_name','owner_name','business_number','commerce_number','business_address','contact_phone','instagram','link']
+        .some(k => map[k]);
+      if (hasAny) footer.classList.remove('hidden');
+    });
+  }
+
+  // ===== HELPERS =====
+  const fmt = n => `${n.toLocaleString()}원`;
+  const itemLabel = i => [i.productName, i.size, i.color].filter(Boolean).join(' / ');
+  function renderKVRows(rows, itemRows) {
+    return rows.map(([k, v]) =>
+      `<div class="flex justify-between"><span class="text-gray-500">${k}</span><span class="font-medium">${v}</span></div>`
+    ).join('') + (itemRows ? `<div class="border-t border-gray-100 pt-2 mt-2 space-y-1">${itemRows}</div>` : '');
+  }
+
+  // ===== CART (localStorage) =====
+  const CART_KEY = `paylink_cart_${brandId || 'default'}`;
+
+  function loadCart() {
+    try { return JSON.parse(localStorage.getItem(CART_KEY)) || []; }
+    catch { return []; }
+  }
+
+  function saveCart(cart) {
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+    renderCartBadge(cart);
+  }
+
+  function renderCartBadge(cart) {
+    const total = cart.reduce((s, i) => s + i.quantity, 0);
+    const btn = document.getElementById('cart-btn');
+    document.getElementById('cart-badge').textContent = total;
+    btn.classList.toggle('hidden', total === 0);
+  }
+
+  // ===== SCREENS =====
+  const SCREENS = ['shop', 'product', 'checkout', 'success', 'error', 'order'];
+
+  window.showScreen = function(name) {
+    SCREENS.forEach(s => document.getElementById(`screen-${s}`).classList.add('hidden'));
+    document.getElementById(`screen-${name}`).classList.remove('hidden');
+  };
+
+  // ===== CART DRAWER =====
+  window.toggleCart = function() {
+    const drawer = document.getElementById('cart-drawer');
+    if (drawer.classList.contains('open')) closeCart();
+    else openCart();
+  };
+
+  window.openCart = function() {
+    renderCartDrawer();
+    document.getElementById('cart-drawer').classList.replace('closed', 'open');
+    document.getElementById('cart-overlay').classList.remove('hidden');
+  };
+
+  window.closeCart = function() {
+    document.getElementById('cart-drawer').classList.replace('open', 'closed');
+    document.getElementById('cart-overlay').classList.add('hidden');
+  };
+
+  function renderCartDrawer() {
+    const cart = loadCart();
+    const subtotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const shipping = cart.length > 0 ? Math.max(...cart.map(i => i.shippingFee || 0)) : 0;
+
+    document.getElementById('drawer-items').innerHTML = cart.length === 0
+      ? '<p class="text-sm text-gray-400 text-center py-4">장바구니가 비어있습니다.</p>'
+      : cart.map((item, idx) =>
+          `<div class="flex justify-between items-center text-sm">
+            <span class="text-gray-700">${itemLabel(item)} × ${item.quantity}</span>
+            <div class="flex items-center gap-2">
+              <span class="font-medium">${fmt(item.unitPrice * item.quantity)}</span>
+              <button onclick="removeItem(${idx})" class="text-gray-300 hover:text-gray-600 text-xs">✕</button>
+            </div>
+          </div>`
+        ).join('');
+
+    document.getElementById('drawer-subtotal').textContent = fmt(subtotal);
+    document.getElementById('drawer-shipping').textContent = fmt(shipping);
+    document.getElementById('drawer-total').textContent = fmt(subtotal + shipping);
+  }
+
+  window.removeItem = function(idx) {
+    const cart = loadCart();
+    cart.splice(idx, 1);
+    saveCart(cart);
+    renderCartDrawer();
+  };
+
+  // ===== SHOP =====
+  async function loadShop() {
+    showScreen('shop');
+    if (!brandId) {
+      document.getElementById('shop-grid').innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">브랜드 링크로 접속해주세요.</p>';
+      return;
+    }
+    const { data } = await supabase.from('products').select('*').eq('owner_id', brandId).eq('is_hidden', false).order('name');
+    const grid = document.getElementById('shop-grid');
+    if (!data || data.length === 0) {
+      grid.innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">등록된 상품이 없습니다.</p>';
+      return;
+    }
+    grid.innerHTML = data.map(p => `
+      <div onclick="showProduct('${p.id}')" class="cursor-pointer">
+        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2">
+          ${p.images && p.images[0]
+            ? `<img src="${p.images[0]}" class="w-full h-full object-cover">`
+            : '<div class="w-full h-full flex items-center justify-center text-gray-300 text-sm">이미지 없음</div>'}
+        </div>
+        <p class="text-sm font-medium">${p.name || ''}</p>
+        <p class="text-sm text-gray-500">${(p.price || 0).toLocaleString()}원</p>
+      </div>
+    `).join('');
+  }
+
+  // ===== PRODUCT DETAIL =====
+  let product = null;
+  let currentSlide = 0;
+  let selectedSize = null;
+  let selectedColor = null;
+  let quantity = 1;
+
+  window.showProduct = async function(id) {
+    history.pushState({}, '', `/?brand=${brandId}&id=${id}`);
+
+    const { data } = await supabase.from('products').select('*').eq('id', id).eq('owner_id', brandId).single();
+    if (!data) return;
+
+    product = data;
+    currentSlide = 0;
+    selectedSize = null;
+    selectedColor = null;
+    quantity = 1;
+    document.getElementById('qty-display').textContent = '1';
+
+    document.getElementById('product-name').textContent = product.name;
+    document.getElementById('product-price').textContent = `${product.price.toLocaleString()}원`;
+    document.getElementById('product-shipping').textContent = `배송비 ${(product.shipping_fee || 0).toLocaleString()}원`;
+    const descEl = document.getElementById('product-desc');
+    if (product.description) {
+      descEl.textContent = product.description;
+      descEl.classList.remove('hidden');
+    } else {
+      descEl.classList.add('hidden');
+    }
+
+    renderSlider();
+    renderOptions();
+    showScreen('product');
+  };
+
+  window.goBack = function() {
+    history.pushState({}, '', `/?brand=${brandId}`);
+    loadShop();
+  };
+
+  // ===== SLIDER =====
+  function renderSlider() {
+    const imgs = product.images || [];
+    document.getElementById('slider-img').src = imgs[currentSlide] || '';
+    document.getElementById('slider-dots').innerHTML = imgs.map((_, i) =>
+      `<button onclick="goSlide(${i})" class="w-3 h-3 rounded-full ${i === currentSlide ? 'bg-black' : 'bg-gray-300'} transition-colors"></button>`
+    ).join('');
+  }
+
+  window.goSlide = function(i) {
+    currentSlide = i;
+    renderSlider();
+  };
+
+  window.prevSlide = function() {
+    const len = (product.images || []).length;
+    currentSlide = (currentSlide - 1 + len) % len;
+    renderSlider();
+  };
+
+  window.nextSlide = function() {
+    const len = (product.images || []).length;
+    currentSlide = (currentSlide + 1) % len;
+    renderSlider();
+  };
+
+  // ===== OPTIONS =====
+  function renderOptions() {
+    const sizes = product.sizes || [];
+    const colors = product.colors || [];
+    document.getElementById('size-section').classList.toggle('hidden', sizes.length === 0);
+    document.getElementById('color-section').classList.toggle('hidden', colors.length === 0);
+
+    document.getElementById('size-buttons').innerHTML = sizes.map(s =>
+      `<button onclick="selectOption('size','${s}')" id="size-${s}" class="px-4 py-2 border border-gray-200 rounded-lg text-sm hover:border-gray-400">${s}</button>`
+    ).join('');
+
+    document.getElementById('color-buttons').innerHTML = colors.map(c =>
+      `<button onclick="selectOption('color','${c}')" id="color-${c}" class="px-4 py-2 border border-gray-200 rounded-lg text-sm hover:border-gray-400">${c}</button>`
+    ).join('');
+  }
+
+  window.selectOption = function(type, val) {
+    if (type === 'size') selectedSize = val;
+    else selectedColor = val;
+    const list = type === 'size' ? (product.sizes || []) : (product.colors || []);
+    list.forEach(v => {
+      document.getElementById(`${type}-${v}`).className = v === val
+        ? 'px-4 py-2 border-2 border-black rounded-lg text-sm font-medium'
+        : 'px-4 py-2 border border-gray-200 rounded-lg text-sm hover:border-gray-400';
+    });
+  };
+
+  window.changeQty = function(delta) {
+    quantity = Math.max(1, quantity + delta);
+    document.getElementById('qty-display').textContent = quantity;
+  };
+
+  // ===== ADD TO CART =====
+  window.addToCart = function() {
+    if ((product.sizes || []).length > 0 && !selectedSize) { alert('사이즈를 선택해주세요.'); return; }
+    if ((product.colors || []).length > 0 && !selectedColor) { alert('컬러를 선택해주세요.'); return; }
+
+    const cart = loadCart();
+    const existing = cart.find(i =>
+      i.productId === product.id && i.size === (selectedSize || '') && i.color === (selectedColor || '')
+    );
+    if (existing) {
+      existing.quantity += quantity;
+    } else {
+      cart.push({
+        productId: product.id,
+        productName: product.name,
+        size: selectedSize || '',
+        color: selectedColor || '',
+        quantity,
+        unitPrice: product.price,
+        shippingFee: product.shipping_fee || 0,
+      });
+    }
+    saveCart(cart);
+
+    selectedSize = null;
+    selectedColor = null;
+    quantity = 1;
+    document.getElementById('qty-display').textContent = '1';
+    renderOptions();
+
+    openCart();
+  };
+
+  // ===== CHECKOUT =====
+  window.goCheckout = function() {
+    const cart = loadCart();
+    if (cart.length === 0) return;
+    closeCart();
+
+    const subtotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const shipping = Math.max(...cart.map(i => i.shippingFee || 0));
+    const amount = subtotal + shipping;
+
+    document.getElementById('summary-items').innerHTML = cart.map(item =>
+      `<div class="flex justify-between"><span>${itemLabel(item)} × ${item.quantity}</span><span>${fmt(item.unitPrice * item.quantity)}</span></div>`
+    ).join('');
+    document.getElementById('summary-amount').textContent =
+      `총 ${fmt(amount)} (배송비 ${fmt(shipping)} 포함)`;
+
+    showScreen('checkout');
+  };
+
+  // ===== ADDRESS SEARCH =====
+  window.openAddrSearch = function() {
+    new daum.Postcode({
+      oncomplete(data) {
+        document.getElementById('addr-zonecode').value = data.zonecode;
+        document.getElementById('addr-address').value = data.roadAddress || data.jibunAddress;
+        document.getElementById('addr-detail').focus();
+      }
+    }).open();
+  };
+
+  // ===== PHONE FORMAT =====
+  document.getElementById('buyer-phone').addEventListener('input', function() {
+    let v = this.value.replace(/\D/g, '');
+    if (v.length <= 3) this.value = v;
+    else if (v.length <= 7) this.value = `${v.slice(0,3)}-${v.slice(3)}`;
+    else this.value = `${v.slice(0,3)}-${v.slice(3,7)}-${v.slice(7,11)}`;
+  });
+
+  // ===== PAYMENT =====
+  window.requestPayment = async function() {
+    const name = document.getElementById('buyer-name').value.trim();
+    const phone = document.getElementById('buyer-phone').value.trim();
+    const zonecode = document.getElementById('addr-zonecode').value.trim();
+    const addrBase = document.getElementById('addr-address').value.trim();
+    const addrDetail = document.getElementById('addr-detail').value.trim();
+    const address = [zonecode, addrBase, addrDetail].filter(Boolean).join(' ');
+    const memo = document.getElementById('shipping-memo').value.trim();
+    const method = document.querySelector('input[name="payment-method"]:checked').value;
+    const errEl = document.getElementById('checkout-error');
+    const phoneErrEl = document.getElementById('phone-error');
+
+    const phoneRegex = /^01[0-9]-?\d{3,4}-?\d{4}$/;
+    const phoneValid = phoneRegex.test(phone);
+    phoneErrEl.classList.toggle('hidden', phoneValid);
+
+    if (!name || !phone || !addrBase) {
+      errEl.textContent = '이름, 연락처, 주소는 필수입니다.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    if (!phoneValid) return;
+    errEl.classList.add('hidden');
+
+    const cart = loadCart();
+    const subtotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    const shipping = Math.max(...cart.map(i => i.shippingFee || 0));
+    const amount = subtotal + shipping;
+    const orderId = `order_${Date.now()}`;
+    const firstProduct = cart[0]?.productName || '주문';
+
+    sessionStorage.setItem('pendingOrder', JSON.stringify({
+      orderId, buyerName: name, buyerPhone: phone,
+      shippingAddress: address, shippingMemo: memo,
+      amount, paymentMethod: method, items: cart,
+      ownerId: brandId,
+    }));
+
+    const tossPayments = TossPayments(TOSS_CLIENT_KEY);
+    tossPayments.requestPayment(method, {
+      amount, orderId,
+      orderName: cart.length > 1 ? `${firstProduct} 외 ${cart.length - 1}건` : firstProduct,
+      customerName: name,
+      successUrl: `${location.origin}/?brand=${brandId}`,
+      failUrl: `${location.origin}/?brand=${brandId}&fail=1`,
+      ...(method === '가상계좌' && { validHours: 24 }),
+    });
+  };
+
+  // ===== CONFIRM AFTER REDIRECT =====
+  async function handleRedirect() {
+    const params = new URLSearchParams(location.search);
+
+    if (params.get('fail')) {
+      history.replaceState({}, '', `/?brand=${brandId}`);
+      const stored = JSON.parse(sessionStorage.getItem('pendingOrder') || 'null');
+      if (stored) {
+        const cart = stored.items || [];
+        const subtotal = cart.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+        const shipping = Math.max(...cart.map(i => i.shippingFee || 0));
+        document.getElementById('summary-items').innerHTML = cart.map(item =>
+          `<div class="flex justify-between"><span>${itemLabel(item)} × ${item.quantity}</span><span>${fmt(item.unitPrice * item.quantity)}</span></div>`
+        ).join('');
+        document.getElementById('summary-amount').textContent = `총 ${fmt(subtotal + shipping)} (배송비 ${fmt(shipping)} 포함)`;
+        document.getElementById('buyer-name').value = stored.buyerName || '';
+        document.getElementById('buyer-phone').value = stored.buyerPhone || '';
+        const addrParts = (stored.shippingAddress || '').split(' ');
+        document.getElementById('addr-zonecode').value = addrParts[0] || '';
+        document.getElementById('addr-address').value = addrParts.slice(1, -1).join(' ') || '';
+        document.getElementById('addr-detail').value = addrParts[addrParts.length - 1] || '';
+        document.getElementById('shipping-memo').value = stored.shippingMemo || '';
+        const methodRadio = document.querySelector(`input[name="payment-method"][value="${stored.paymentMethod}"]`);
+        if (methodRadio) methodRadio.checked = true;
+        const errEl = document.getElementById('checkout-error');
+        errEl.textContent = params.get('message') || '결제가 취소되었거나 실패했습니다. 다시 시도해주세요.';
+        errEl.classList.remove('hidden');
+      }
+      showScreen('checkout');
+      return true;
+    }
+
+    if (!params.get('paymentKey')) return false;
+
+    const stored = JSON.parse(sessionStorage.getItem('pendingOrder') || 'null');
+    if (!stored) {
+      document.getElementById('error-msg').textContent = '주문 정보를 찾을 수 없습니다.';
+      showScreen('error');
+      return true;
+    }
+
+    try {
+      const res = await fetch('/api/confirm', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...stored,
+          paymentKey: params.get('paymentKey'),
+        }),
+      });
+
+      const resData = await res.json();
+      if (!resData.success) throw new Error(resData.message || '결제 승인 실패');
+
+      sessionStorage.removeItem('pendingOrder');
+      localStorage.removeItem(CART_KEY);
+      history.replaceState({}, '', `/?brand=${brandId}`);
+
+      document.getElementById('success-order-id').textContent = stored.orderId;
+
+      // 가상계좌 정보 표시
+      const vaInfo = document.getElementById('virtual-account-info');
+      if (resData.virtualAccount) {
+        const va = resData.virtualAccount;
+        document.getElementById('va-bank').textContent = va.bankName;
+        document.getElementById('va-account').textContent = va.accountNumber;
+        const due = va.dueDate ? new Date(va.dueDate).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul' }) : '-';
+        document.getElementById('va-due').textContent = due;
+        vaInfo.classList.remove('hidden');
+      } else {
+        vaInfo.classList.add('hidden');
+      }
+
+      const rows = [
+        ['결제수단', stored.paymentMethod],
+        ['결제금액', fmt(stored.amount)],
+        ['받는 분', stored.buyerName],
+        ['연락처', stored.buyerPhone],
+        ['배송지', stored.shippingAddress],
+        stored.shippingMemo ? ['배송 메모', stored.shippingMemo] : null,
+      ].filter(Boolean);
+
+      const itemRows = (stored.items || []).map(item =>
+        `<div class="flex justify-between"><span class="text-gray-500">${itemLabel(item)} × ${item.quantity}</span><span class="font-medium">${fmt(item.unitPrice * item.quantity)}</span></div>`
+      ).join('');
+
+      document.getElementById('success-detail').innerHTML = renderKVRows(rows, itemRows);
+
+      showScreen('success');
+    } catch (e) {
+      document.getElementById('error-msg').textContent = e.message;
+      showScreen('error');
+    }
+    return true;
+  }
+
+  // ===== GOTO SHOP (from checkout back button) =====
+  window.goToShop = async function() {
+    closeCart();
+    await loadShop();
+  };
+
+  // ===== GOTO ORDER LOOKUP (pre-fill order number) =====
+  window.goToOrderLookup = function() {
+    const orderId = document.getElementById('success-order-id').textContent;
+    if (orderId) document.getElementById('order-id-input').value = orderId;
+    showScreen('order');
+  };
+
+  // ===== COPY VIRTUAL ACCOUNT =====
+  window.copyVirtualAccount = function(btn) {
+    const account = document.getElementById('va-account').textContent;
+    navigator.clipboard.writeText(account).then(() => {
+      btn.textContent = '복사됨';
+      setTimeout(() => btn.textContent = '복사', 1500);
+    });
+  };
+
+  // ===== COPY ORDER ID =====
+  window.copyOrderId = function(btn) {
+    const id = document.getElementById('success-order-id').textContent;
+    navigator.clipboard.writeText(id).then(() => {
+      btn.textContent = '복사됨';
+      setTimeout(() => btn.textContent = '복사', 1500);
+    });
+  };
+
+  // ===== ORDER LOOKUP =====
+  window.lookupOrder = async function() {
+    const orderId = document.getElementById('order-id-input').value.trim();
+    const buyerPhone = document.getElementById('order-phone-input').value.trim();
+    const errEl = document.getElementById('order-error');
+    const resultEl = document.getElementById('order-result');
+
+    if (!orderId || !buyerPhone) {
+      errEl.textContent = '주문번호와 연락처를 입력해주세요.';
+      errEl.classList.remove('hidden');
+      resultEl.classList.add('hidden');
+      return;
+    }
+    errEl.classList.add('hidden');
+
+    const res = await fetch('/api/order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderId, buyerPhone }),
+    });
+
+    if (!res.ok) {
+      const { message } = await res.json();
+      errEl.textContent = message || '주문을 찾을 수 없습니다.';
+      errEl.classList.remove('hidden');
+      resultEl.classList.add('hidden');
+      return;
+    }
+
+    const order = await res.json();
+    const itemRows = (order.items || []).map(i =>
+      `<div class="flex justify-between"><span class="text-gray-500">${itemLabel(i)} × ${i.quantity}</span><span>${fmt(i.unitPrice * i.quantity)}</span></div>`
+    ).join('');
+
+    const STATUS_KO = { waiting_for_deposit: '입금 대기', paid: '배송 전', shipping: '배송 중', delivered: '배송 완료' };
+    const rows = [
+      ['주문번호', order.order_id],
+      ['주문상태', STATUS_KO[order.status] || order.status],
+      ['결제금액', fmt(order.amount || 0)],
+      ['받는 분', order.buyer_name],
+      ['연락처', order.buyer_phone],
+      ['배송지', order.shipping_address],
+      order.shipping_memo ? ['배송 메모', order.shipping_memo] : null,
+    ].filter(Boolean);
+
+    resultEl.innerHTML = renderKVRows(rows, itemRows);
+    resultEl.classList.remove('hidden');
+  };
+
+  // ===== INIT =====
+  async function init() {
+    const brandParam = brandId ? `?brand=${brandId}` : '/';
+    document.getElementById('btn-home').onclick = () => { location.href = brandParam; };
+    document.getElementById('btn-order-back').onclick = () => { location.href = brandParam; };
+    document.getElementById('btn-retry').onclick = () => { location.href = brandParam; };
+
+    renderCartBadge(loadCart());
+
+    const handled = await handleRedirect();
+    if (handled) return;
+
+    const params = new URLSearchParams(location.search);
+    const pid = params.get('id');
+
+    if (params.has('order')) {
+      showScreen('order');
+    } else if (pid) {
+      await showProduct(pid);
+    } else {
+      await loadShop();
+    }
+  }
+
+  init();
+</script>
+<script src="https://js.tosspayments.com/v1/payment"></script>
+</body>
+</html>

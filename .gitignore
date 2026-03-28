@@ -1,4 +1,9 @@
+.env
 .env.local
 .env*.local
 node_modules/
 .vercel/
+.vercel
+CLAUDE.md
+features.md
+supabase.sql

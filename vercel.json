@@ -1,0 +1,11 @@
+{
+  "rewrites": [
+    { "source": "/api/config", "destination": "/api/config.js" },
+    { "source": "/api/confirm", "destination": "/api/confirm.js" },
+    { "source": "/api/product", "destination": "/api/product.js" },
+    { "source": "/api/upload", "destination": "/api/upload.js" },
+    { "source": "/api/order", "destination": "/api/order.js" },
+    { "source": "/api/order-status", "destination": "/api/order-status.js" },
+    { "source": "/api/webhook", "destination": "/api/webhook.js" }
+  ]
+}

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Paylink Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen">
+
+<!-- ===== HEADER ===== -->
+<header id="admin-header" class="hidden sticky top-0 bg-white border-b border-gray-100 z-30">
+  <div class="max-w-xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2 cursor-pointer" onclick="show('list')">
+      <span id="admin-brand" class="font-bold text-base">-</span>
+      <span class="text-xs text-gray-400 border border-gray-200 rounded px-1.5 py-0.5">Admin</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <a id="header-shop-link" href="#" target="_blank" class="text-xs text-gray-400 hover:text-gray-700">쇼핑몰 바로가기</a>
+      <button onclick="show('setup')" class="text-xs text-gray-400 hover:text-gray-700">브랜드 설정</button>
+      <button onclick="logout()" class="text-xs text-gray-400 hover:text-gray-700">로그아웃</button>
+    </div>
+  </div>
+</header>
+
+<!-- ===== LOGIN ===== -->
+<div id="screen-login" class="hidden max-w-sm mx-auto px-4 py-24 text-center">
+  <h1 class="text-2xl font-bold mb-2">Admin</h1>
+  <p class="text-sm text-gray-400 mb-10">Google 계정으로 로그인하세요.</p>
+  <p id="login-error" class="text-red-500 text-sm mb-4 hidden"></p>
+  <button onclick="login()" class="w-full bg-black text-white py-3 rounded-xl text-sm font-semibold hover:bg-gray-800">Google로 로그인</button>
+</div>
+
+<!-- ===== BRAND NAME SETUP ===== -->
+<div id="screen-setup" class="hidden max-w-sm mx-auto px-4 py-16">
+  <h2 class="text-xl font-bold mb-2">브랜드 설정</h2>
+  <p class="text-sm text-gray-400 mb-6">고객 페이지 및 하단 사업자 정보에 표시됩니다.</p>
+  <div class="space-y-3 mb-3">
+    <input id="setup-brand" type="text" placeholder="브랜드명 *" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-owner-name" type="text" placeholder="대표자명" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-business-number" type="text" placeholder="사업자등록번호 (000-00-00000)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-commerce-number" type="text" placeholder="통신판매업 신고번호" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-address" type="text" placeholder="주소" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-contact-phone" type="tel" placeholder="고객 문의 전화번호" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-instagram" type="text" placeholder="인스타그램 아이디 (@제외)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-link" type="url" placeholder="기타 링크 (https://...)" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+    <input id="setup-notify-email" type="email" placeholder="주문 알림 이메일" class="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-gray-400 bg-white">
+  </div>
+  <p id="setup-error" class="text-red-500 text-sm mb-3 hidden"></p>
+  <button onclick="saveBrandSettings()" class="w-full bg-black text-white py-3 rounded-xl text-sm font-semibold hover:bg-gray-800">저장</button>
+</div>
+
+<!-- ===== PRODUCT LIST ===== -->
+<div id="screen-list" class="hidden max-w-xl mx-auto px-4 py-10">
+  <div class="flex items-center justify-between mb-4">
+    <div class="flex items-center gap-3">
+      <button onclick="show('list')" class="text-sm font-semibold border-b-2 border-black pb-0.5">상품 목록</button>
+      <button onclick="loadOrders()" class="text-sm text-gray-400 hover:text-gray-700 pb-0.5">주문 목록</button>
+    </div>
+    <div class="flex items-center gap-2">
+      <button onclick="copyStoreLink()" class="text-xs border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50">스토어 링크</button>
+      <button onclick="openEditor(null)" class="bg-black text-white px-4 py-2 rounded-xl text-sm font-medium hover:bg-gray-800">+ 새 상품</button>
+    </div>
+  </div>
+  <div id="claim-banner" class="hidden bg-amber-50 border border-amber-200 rounded-xl p-3 mb-4 flex items-center justify-between gap-3">
+    <p class="text-sm text-amber-800"><span id="claim-count"></span>개의 기존 상품이 연결되지 않았습니다.</p>
+    <button onclick="claimProducts()" class="shrink-0 text-xs bg-amber-600 text-white rounded-lg px-3 py-1.5 hover:bg-amber-700">내 계정으로 가져오기</button>
+  </div>
+  <div id="product-list" class="space-y-3"></div>
+</div>
+
+<!-- ===== ORDERS ===== -->
+<div id="screen-orders" class="hidden max-w-xl mx-auto px-4 py-10">
+  <div class="flex items-center justify-between mb-6">
+    <div class="flex items-center gap-3">
+      <button onclick="loadList()" class="text-sm text-gray-400 hover:text-gray-700 pb-0.5">상품 목록</button>
+      <button onclick="loadOrders()" class="text-sm font-semibold border-b-2 border-black pb-0.5">주문 목록</button>
+    </div>
+  </div>
+  <div id="orders-table" class="overflow-x-auto"></div>
+</div>
+
+<!-- ===== EDITOR ===== -->
+<div id="screen-editor" class="hidden max-w-xl mx-auto px-4 py-10">
+  <div class="mb-6">
+    <button onclick="show('list')" class="text-sm text-gray-500 hover:text-gray-800">← 목록으로</button>
+  </div>
+  <h2 id="editor-title" class="text-xl font-bold mb-6">상품 편집</h2>
+
+  <div class="bg-white rounded-2xl p-6 space-y-5">
+    <div>
+      <label class="block text-sm font-medium text-gray-600 mb-1">상품명</label>
+      <input id="f-name" type="text" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-400">
+    </div>
+    <div class="flex gap-3">
+      <div class="flex-1">
+        <label class="block text-sm font-medium text-gray-600 mb-1">가격 (원)</label>
+        <input id="f-price" type="number" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-400">
+      </div>
+      <div class="flex-1">
+        <label class="block text-sm font-medium text-gray-600 mb-1">배송비 (원)</label>
+        <input id="f-shipping" type="number" value="4000" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-400">
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-600 mb-1">상품 설명</label>
+      <textarea id="f-desc" rows="4" placeholder="상품 설명을 입력하세요." class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-400 resize-none"></textarea>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-600 mb-1">사이즈 (쉼표 구분)</label>
+      <input id="f-sizes" type="text" placeholder="S, M, L, XL" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-400">
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-600 mb-1">컬러 (쉼표 구분)</label>
+      <input id="f-colors" type="text" placeholder="블랙, 화이트, 네이비" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-400">
+    </div>
+
+    <div>
+      <label class="block text-sm font-medium text-gray-600 mb-1">이미지 (최대 10장)</label>
+      <input id="f-images" type="file" accept="image/*" multiple class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200">
+      <div id="image-preview" class="flex gap-2 mt-3 flex-wrap"></div>
+      <div id="existing-images" class="flex gap-2 mt-2 flex-wrap"></div>
+    </div>
+
+    <p id="save-error" class="text-red-500 text-sm hidden"></p>
+    <p id="save-ok" class="text-green-600 text-sm hidden">저장되었습니다.</p>
+    <button onclick="saveProduct()" id="save-btn" class="w-full bg-black text-white py-3 rounded-xl text-sm font-semibold hover:bg-gray-800">저장</button>
+  </div>
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer id="site-footer" class="hidden border-t border-gray-100 mt-16 px-4 py-10 text-xs text-gray-400 max-w-xl mx-auto space-y-1.5">
+  <p id="footer-brand" class="font-medium text-gray-500"></p>
+  <p id="footer-owner"></p>
+  <p id="footer-business-number"></p>
+  <p id="footer-commerce-number"></p>
+  <p id="footer-address"></p>
+  <p id="footer-contact"></p>
+  <a id="footer-instagram" href="#" target="_blank" rel="noopener" class="hidden text-gray-400 hover:text-gray-600">Instagram</a>
+  <a id="footer-link" href="#" target="_blank" rel="noopener" class="hidden text-gray-400 hover:text-gray-600"></a>
+</footer>
+
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+  const cfg = await fetch('/api/config').then(r => r.json());
+  const supabase = createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  let productId = null;
+  let existingImages = [];
+  let currentUser = null;
+
+  async function getToken() {
+    const { data } = await supabase.auth.getSession();
+    return data.session?.access_token || '';
+  }
+
+  const SCREENS = ['login', 'setup', 'list', 'editor', 'orders'];
+  const STATUS_MAP   = { waiting_for_deposit: '입금 대기', paid: '배송 전', shipping: '배송 중', delivered: '배송 완료' };
+  const STATUS_NEXT  = { paid: 'shipping', shipping: 'delivered' };
+  const STATUS_LABEL = { paid: '배송 시작', shipping: '배송 완료' };
+
+  window.show = function(name) {
+    SCREENS.forEach(s => document.getElementById(`screen-${s}`).classList.add('hidden'));
+    document.getElementById(`screen-${name}`).classList.remove('hidden');
+    document.getElementById('admin-header').classList.toggle('hidden', name === 'login');
+  };
+
+  // ===== BRAND =====
+  const SETTING_KEYS = ['brand_name', 'owner_name', 'business_number', 'commerce_number', 'business_address', 'contact_phone', 'instagram', 'link', 'notify_email'];
+
+  async function loadBrandSettings() {
+    const { data } = await supabase.from('settings').select('key, value').eq('owner_id', currentUser.id);
+    const map = Object.fromEntries((data || []).map(r => [r.key, r.value]));
+    const name = map['brand_name']?.trim() || '';
+    document.getElementById('admin-brand').textContent = name || '(브랜드명 없음)';
+    document.getElementById('setup-brand').value = name;
+    document.getElementById('setup-owner-name').value = map['owner_name']?.trim() || '';
+    document.getElementById('setup-business-number').value = map['business_number']?.trim() || '';
+    document.getElementById('setup-commerce-number').value = map['commerce_number']?.trim() || '';
+    document.getElementById('setup-address').value = map['business_address']?.trim() || '';
+    document.getElementById('setup-contact-phone').value = map['contact_phone']?.trim() || '';
+    document.getElementById('setup-instagram').value = map['instagram']?.trim() || '';
+    document.getElementById('setup-link').value = map['link']?.trim() || '';
+    document.getElementById('setup-notify-email').value = map['notify_email']?.trim() || '';
+
+    const footer = document.getElementById('site-footer');
+    const set = (id, prefix, val) => { if (val) document.getElementById(id).textContent = prefix + val; };
+    set('footer-brand', '상호: ', name);
+    set('footer-owner', '대표자: ', map['owner_name']);
+    set('footer-business-number', '사업자등록번호: ', map['business_number']);
+    set('footer-commerce-number', '통신판매업 신고번호: ', map['commerce_number']);
+    set('footer-address', '주소: ', map['business_address']);
+    set('footer-contact', '고객 문의: ', map['contact_phone']);
+    const ig = map['instagram']?.replace(/^@/, '');
+    const igEl = document.getElementById('footer-instagram');
+    if (ig) {
+      igEl.href = `https://instagram.com/${ig}`;
+      igEl.textContent = `Instagram @${ig}`;
+      igEl.classList.remove('hidden');
+    }
+    const lk = map['link'];
+    const lkEl = document.getElementById('footer-link');
+    if (lk) {
+      lkEl.href = lk;
+      lkEl.textContent = lk;
+      lkEl.classList.remove('hidden');
+    }
+    if (['brand_name','owner_name','business_number','commerce_number','business_address','contact_phone','instagram','link'].some(k => map[k])) {
+      footer.classList.remove('hidden');
+    }
+    return name;
+  }
+
+  window.saveBrandSettings = async function() {
+    const name = document.getElementById('setup-brand').value.trim();
+    const errEl = document.getElementById('setup-error');
+    if (!name) {
+      errEl.textContent = '브랜드명을 입력해주세요.';
+      errEl.classList.remove('hidden');
+      return;
+    }
+    errEl.classList.add('hidden');
+
+    const fieldMap = {
+      brand_name:        document.getElementById('setup-brand').value.trim(),
+      owner_name:        document.getElementById('setup-owner-name').value.trim(),
+      business_number:   document.getElementById('setup-business-number').value.trim(),
+      commerce_number:   document.getElementById('setup-commerce-number').value.trim(),
+      business_address:  document.getElementById('setup-address').value.trim(),
+      contact_phone:     document.getElementById('setup-contact-phone').value.trim(),
+      instagram:         document.getElementById('setup-instagram').value.trim().replace(/^@/, ''),
+      link:              document.getElementById('setup-link').value.trim(),
+      notify_email:      document.getElementById('setup-notify-email').value.trim(),
+    };
+
+    const rows = Object.entries(fieldMap)
+      .filter(([, v]) => v)
+      .map(([key, value]) => ({ owner_id: currentUser.id, key, value }));
+
+    const { error } = await supabase.from('settings').upsert(rows);
+    if (error) {
+      errEl.textContent = error.message;
+      errEl.classList.remove('hidden');
+      return;
+    }
+    document.getElementById('admin-brand').textContent = name;
+    loadList();
+  };
+
+  window.copyStoreLink = function() {
+    const url = `${location.origin}/?brand=${currentUser.id}`;
+    navigator.clipboard.writeText(url).then(() => alert('스토어 링크가 복사되었습니다.\n' + url));
+  };
+
+  // ===== AUTH =====
+  window.login = async function() {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${location.origin}/admin.html` },
+    });
+    if (error) {
+      const el = document.getElementById('login-error');
+      el.textContent = error.message;
+      el.classList.remove('hidden');
+    }
+  };
+
+  window.logout = async function() {
+    await supabase.auth.signOut();
+    currentUser = null;
+    show('login');
+  };
+
+  // ===== PRODUCTS =====
+  window.loadList = async function() {
+    show('list');
+    const { data: unowned } = await supabase.from('products').select('id').is('owner_id', null);
+    const claimBanner = document.getElementById('claim-banner');
+    if (unowned?.length > 0) {
+      document.getElementById('claim-count').textContent = unowned.length;
+      claimBanner.classList.remove('hidden');
+    } else {
+      claimBanner.classList.add('hidden');
+    }
+
+    const { data } = await supabase.from('products').select('*').eq('owner_id', currentUser.id).order('name');
+    const el = document.getElementById('product-list');
+    if (!data || data.length === 0) {
+      el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">등록된 상품이 없습니다.</p>';
+      return;
+    }
+    el.innerHTML = data.map(p => `
+      <div class="bg-white rounded-xl p-4 flex items-center gap-4 ${p.is_hidden ? 'opacity-50' : ''}">
+        <div class="shrink-0 w-14 h-14 rounded-lg overflow-hidden bg-gray-100">
+          ${p.images?.[0]
+            ? `<img src="${p.images[0]}" class="w-full h-full object-cover">`
+            : '<div class="w-full h-full flex items-center justify-center text-gray-300 text-xs">없음</div>'}
+        </div>
+        <div class="flex-1 min-w-0">
+          <p class="font-medium text-sm truncate">${p.name || '(이름 없음)'}${p.is_hidden ? ' <span class="text-xs text-gray-400 font-normal">(숨김)</span>' : ''}</p>
+          <p class="text-xs text-gray-400 mt-0.5">${(p.price || 0).toLocaleString()}원 · 배송비 ${(p.shipping_fee || 0).toLocaleString()}원</p>
+          ${p.description ? `<p class="text-xs text-gray-400 mt-0.5 truncate">${p.description}</p>` : ''}
+          ${(p.sizes?.length || p.colors?.length) ? `<p class="text-xs text-gray-300 mt-0.5">${[p.sizes?.join(' · '), p.colors?.join(' · ')].filter(Boolean).join(' / ')}</p>` : ''}
+        </div>
+        <div class="flex items-center gap-2 shrink-0">
+          <button onclick="copyLink('${p.id}')" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">링크 복사</button>
+          <button onclick="toggleHidden('${p.id}', ${p.is_hidden})" class="text-xs border border-gray-200 rounded-lg px-3 py-1.5 hover:bg-gray-50">${p.is_hidden ? '표시' : '숨김'}</button>
+          <button onclick="openEditor('${p.id}')" class="text-xs bg-black text-white rounded-lg px-3 py-1.5 hover:bg-gray-800">편집</button>
+          <button onclick="deleteProduct('${p.id}', '${(p.name || '').replace(/'/g, "\\'")}')" class="text-xs border border-red-200 text-red-500 rounded-lg px-3 py-1.5 hover:bg-red-50">삭제</button>
+        </div>
+      </div>
+    `).join('');
+  };
+
+  window.claimProducts = async function() {
+    const { error } = await supabase.from('products').update({ owner_id: currentUser.id }).is('owner_id', null);
+    if (error) { alert('가져오기에 실패했습니다.'); return; }
+    loadList();
+  };
+
+  window.copyLink = function(id) {
+    const url = `${location.origin}/?brand=${currentUser.id}&id=${id}`;
+    navigator.clipboard.writeText(url).then(() => alert('링크가 복사되었습니다.\n' + url));
+  };
+
+  window.openEditor = async function(id) {
+    productId = id;
+    existingImages = [];
+    document.getElementById('editor-title').textContent = id ? '상품 편집' : '새 상품';
+    document.getElementById('f-name').value = '';
+    document.getElementById('f-price').value = '';
+    document.getElementById('f-shipping').value = '4000';
+    document.getElementById('f-desc').value = '';
+    document.getElementById('f-sizes').value = '';
+    document.getElementById('f-colors').value = '';
+    document.getElementById('image-preview').innerHTML = '';
+    document.getElementById('existing-images').innerHTML = '';
+    document.getElementById('save-error').classList.add('hidden');
+    document.getElementById('save-ok').classList.add('hidden');
+
+    if (id) {
+      const { data } = await supabase.from('products').select('*').eq('id', id).single();
+      if (data) {
+        existingImages = data.images || [];
+        document.getElementById('f-name').value = data.name || '';
+        document.getElementById('f-price').value = data.price || '';
+        document.getElementById('f-shipping').value = data.shipping_fee ?? 4000;
+        document.getElementById('f-desc').value = data.description || '';
+        document.getElementById('f-sizes').value = (data.sizes || []).join(', ');
+        document.getElementById('f-colors').value = (data.colors || []).join(', ');
+        renderExistingImages();
+      }
+    }
+    show('editor');
+  };
+
+  function renderExistingImages() {
+    document.getElementById('existing-images').innerHTML = existingImages.map((url, i) =>
+      `<div class="relative">
+        <img src="${url}" class="w-16 h-16 object-cover rounded-lg border border-gray-200">
+        <button onclick="removeExistingImage(${i})" class="absolute -top-1 -right-1 w-4 h-4 bg-black text-white rounded-full text-xs flex items-center justify-center">×</button>
+      </div>`
+    ).join('');
+  }
+
+  window.removeExistingImage = function(i) {
+    existingImages.splice(i, 1);
+    renderExistingImages();
+  };
+
+  document.getElementById('f-images').addEventListener('change', e => {
+    const preview = document.getElementById('image-preview');
+    preview.innerHTML = '';
+    Array.from(e.target.files).slice(0, 10).forEach(file => {
+      const url = URL.createObjectURL(file);
+      preview.innerHTML += `<img src="${url}" class="w-16 h-16 object-cover rounded-lg border border-gray-200">`;
+    });
+  });
+
+  window.saveProduct = async function() {
+    const btn = document.getElementById('save-btn');
+    const errEl = document.getElementById('save-error');
+    const okEl = document.getElementById('save-ok');
+    errEl.classList.add('hidden');
+    okEl.classList.add('hidden');
+    btn.textContent = '저장 중...';
+    btn.disabled = true;
+
+    try {
+      const fileInput = document.getElementById('f-images');
+      const newUrls = [];
+      for (const file of Array.from(fileInput.files).slice(0, 10 - existingImages.length)) {
+        const fileData = await new Promise(resolve => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target.result.split(',')[1]);
+          reader.readAsDataURL(file);
+        });
+        const upRes = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
+          body: JSON.stringify({ fileName: file.name, fileData, contentType: file.type }),
+        });
+        if (!upRes.ok) throw new Error((await upRes.json()).message || '업로드 실패');
+        newUrls.push((await upRes.json()).url);
+      }
+
+      const images = [...existingImages, ...newUrls];
+      const payload = {
+        id: productId || undefined,
+        name: document.getElementById('f-name').value.trim(),
+        price: parseInt(document.getElementById('f-price').value),
+        shipping_fee: parseInt(document.getElementById('f-shipping').value),
+        description: document.getElementById('f-desc').value.trim(),
+        sizes: document.getElementById('f-sizes').value.split(',').map(s => s.trim()).filter(Boolean),
+        colors: document.getElementById('f-colors').value.split(',').map(s => s.trim()).filter(Boolean),
+        images,
+      };
+
+      const res = await fetch('/api/product', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error((await res.json()).message || '저장 실패');
+
+      const result = await res.json();
+      if (!productId && result.id) productId = result.id;
+
+      existingImages = images;
+      fileInput.value = '';
+      loadList();
+    } catch (e) {
+      errEl.textContent = e.message;
+      errEl.classList.remove('hidden');
+    } finally {
+      btn.textContent = '저장';
+      btn.disabled = false;
+    }
+  };
+
+  window.toggleHidden = async function(id, currentHidden) {
+    const res = await fetch('/api/product', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
+      body: JSON.stringify({ id, is_hidden: !currentHidden }),
+    });
+    if (!res.ok) { alert('실패했습니다.'); return; }
+    loadList();
+  };
+
+  window.deleteProduct = async function(id, name) {
+    if (!confirm(`"${name}" 상품을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+    const res = await fetch('/api/product', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
+      body: JSON.stringify({ id }),
+    });
+    if (!res.ok) { alert('삭제에 실패했습니다.'); return; }
+    loadList();
+  };
+
+  // ===== ORDERS =====
+  window.loadOrders = async function() {
+    show('orders');
+    const { data, error } = await supabase.from('orders')
+      .select('*').eq('owner_id', currentUser.id).order('created_at', { ascending: false });
+    const orders = error ? [] : (data || []);
+    const el = document.getElementById('orders-table');
+    if (orders.length === 0) {
+      el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">주문이 없습니다.</p>';
+      return;
+    }
+    el.innerHTML = `
+      <table class="text-xs border-collapse whitespace-nowrap">
+        <thead>
+          <tr class="border-b border-gray-200 text-left text-gray-400">
+            <th class="py-2 pr-4 font-medium">주문번호</th>
+            <th class="py-2 pr-4 font-medium">주문일시</th>
+            <th class="py-2 pr-4 font-medium">구매자</th>
+            <th class="py-2 pr-4 font-medium">연락처</th>
+            <th class="py-2 pr-4 font-medium">금액</th>
+            <th class="py-2 pr-4 font-medium">배송 상태</th>
+            <th class="py-2 font-medium">상품</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${orders.map(o => {
+            const items = (o.items || []).map(i =>
+              [i.productName, i.size, i.color].filter(Boolean).join('/') + `×${i.quantity}`
+            ).join(', ');
+            const d = o.created_at ? new Date(o.created_at) : null;
+            const dt = d ? d.toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '-';
+            const orderId = o.order_id || '-';
+            const status = o.status || 'paid';
+            const editableStatuses = Object.entries(STATUS_MAP).filter(([val]) => val !== 'waiting_for_deposit');
+            const statusCell = status === 'waiting_for_deposit'
+              ? `<span class="text-gray-400">${STATUS_MAP['waiting_for_deposit']}</span>`
+              : `<select onchange="updateOrderStatus('${o.id}', this.value)"
+                  class="border border-gray-200 rounded px-1 py-0.5 bg-white focus:outline-none focus:border-gray-400 text-xs">
+                  ${editableStatuses.map(([val, label]) =>
+                    `<option value="${val}" ${val === status ? 'selected' : ''}>${label}</option>`
+                  ).join('')}
+                </select>`;
+            return `<tr class="border-b border-gray-100 hover:bg-gray-50">
+              <td class="py-2 pr-4 font-mono text-gray-400">${orderId}</td>
+              <td class="py-2 pr-4 text-gray-500">${dt}</td>
+              <td class="py-2 pr-4">${o.buyer_name || '-'}</td>
+              <td class="py-2 pr-4">${o.buyer_phone || '-'}</td>
+              <td class="py-2 pr-4">${(o.amount || 0).toLocaleString()}원</td>
+              <td class="py-2 pr-4">${statusCell}</td>
+              <td class="py-2 text-gray-500">${items || '-'}</td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>`;
+  };
+
+  window.updateOrderStatus = async function(id, nextStatus) {
+    const res = await fetch('/api/order-status', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await getToken()}` },
+      body: JSON.stringify({ id, status: nextStatus }),
+    });
+    if (!res.ok) { alert('상태 변경에 실패했습니다.'); return; }
+    loadOrders();
+  };
+
+  // ===== INIT =====
+  const { data: { session } } = await supabase.auth.getSession();
+  if (session) {
+    currentUser = session.user;
+    document.getElementById('header-shop-link').href = `${location.origin}/?brand=${currentUser.id}`;
+    const brandName = await loadBrandSettings();
+    if (!brandName) show('setup');
+    else loadList();
+  } else {
+    show('login');
+  }
+</script>
+</body>
+</html>
