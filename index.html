@@ -29,6 +29,7 @@
 <div id="screen-shop" class="hidden max-w-md mx-auto px-4 py-8">
   <h1 id="shop-title" class="text-xl font-bold mb-6">브랜드 목록</h1>
   <div id="shop-grid" class="grid grid-cols-2 gap-3"></div>
+  <div id="shop-sentinel" class="h-10"></div>
 </div>
 
 <!-- ===== SCREEN: PRODUCT ===== -->
@@ -198,7 +199,7 @@
 </div>
 
 <!-- ===== FOOTER ===== -->
-<footer id="site-footer" class="hidden border-t border-gray-100 mt-16 px-4 py-10 text-xs text-gray-400 max-w-md mx-auto space-y-1.5">
+<footer id="site-footer" class="hidden border-t border-gray-100 mt-16 px-4 py-10 text-[11px] text-gray-400 max-w-md mx-auto space-y-1.5">
   <p id="footer-brand" class="font-medium text-gray-500"></p>
   <p id="footer-owner"></p>
   <p id="footer-business-number"></p>
@@ -207,7 +208,7 @@
   <p id="footer-contact"></p>
   <a id="footer-instagram" href="#" target="_blank" rel="noopener" class="hidden text-gray-400 hover:text-gray-600">Instagram</a>
   <a id="footer-link" href="#" target="_blank" rel="noopener" class="hidden text-gray-400 hover:text-gray-600"></a>
-  <div class="border-t border-gray-100 pt-3 mt-3 text-gray-300">
+  <div class="border-t border-gray-100 pt-3 mt-3 text-gray-300 text-[10px]">
     <p>주문 취소는 배송 시작 전까지 가능하며 취소를 원하시면 위 연락처로 문의 부탁 드립니다.</p>
   </div>
 </footer>
@@ -351,6 +352,47 @@
   };
 
   // ===== SHOP =====
+  const PAGE_SIZE = 10;
+  let shopCursor = null;
+  let shopDone = false;
+  let shopLoading = false;
+  let shopObserver = null;
+
+  function productCard(p) {
+    return `<div onclick="showProduct('${p.id}')" class="cursor-pointer">
+        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2">
+          ${p.images && p.images[0]
+            ? `<img src="${p.images[0]}" class="w-full h-full object-cover">`
+            : '<div class="w-full h-full flex items-center justify-center text-gray-300 text-sm">이미지 없음</div>'}
+        </div>
+        <p class="text-sm font-medium">${p.name || ''}</p>
+        <p class="text-sm text-gray-500">${(p.price || 0).toLocaleString()}원</p>
+      </div>`;
+  }
+
+  async function fetchNextPage() {
+    if (shopDone || shopLoading) return;
+    shopLoading = true;
+    let q = supabase.from('products').select('*')
+      .eq('owner_id', brandId)
+      .eq('is_hidden', false)
+      .order('created_at', { ascending: false })
+      .limit(PAGE_SIZE);
+    if (shopCursor) q = q.lt('created_at', shopCursor);
+    const { data, error } = await q;
+    shopLoading = false;
+    if (error) { console.error('[shop]', error); return; }
+    const grid = document.getElementById('shop-grid');
+    if (!data || data.length === 0) {
+      if (!shopCursor) grid.innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">등록된 상품이 없습니다.</p>';
+      shopDone = true;
+      return;
+    }
+    grid.insertAdjacentHTML('beforeend', data.map(productCard).join(''));
+    shopCursor = data[data.length - 1].created_at;
+    if (data.length < PAGE_SIZE) shopDone = true;
+  }
+
   async function loadShop() {
     showScreen('shop');
     document.getElementById('shop-title').textContent = brandId ? '상품 목록' : '브랜드 목록';
@@ -367,23 +409,16 @@
       }
       return;
     }
-    const { data } = await supabase.from('products').select('*').eq('owner_id', brandId).eq('is_hidden', false).order('name');
-    const grid = document.getElementById('shop-grid');
-    if (!data || data.length === 0) {
-      grid.innerHTML = '<p class="col-span-2 text-center text-gray-400 py-12">등록된 상품이 없습니다.</p>';
-      return;
-    }
-    grid.innerHTML = data.map(p => `
-      <div onclick="showProduct('${p.id}')" class="cursor-pointer">
-        <div class="aspect-square rounded-xl overflow-hidden bg-gray-100 mb-2">
-          ${p.images && p.images[0]
-            ? `<img src="${p.images[0]}" class="w-full h-full object-cover">`
-            : '<div class="w-full h-full flex items-center justify-center text-gray-300 text-sm">이미지 없음</div>'}
-        </div>
-        <p class="text-sm font-medium">${p.name || ''}</p>
-        <p class="text-sm text-gray-500">${(p.price || 0).toLocaleString()}원</p>
-      </div>
-    `).join('');
+    shopCursor = null; shopDone = false; shopLoading = false;
+    document.getElementById('shop-grid').innerHTML = '';
+    if (shopObserver) shopObserver.disconnect();
+
+    await fetchNextPage();
+
+    shopObserver = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) fetchNextPage();
+    }, { rootMargin: '200px' });
+    shopObserver.observe(document.getElementById('shop-sentinel'));
   }
 
   // ===== PRODUCT DETAIL =====
