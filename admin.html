@@ -4,8 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Paylink Admin</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-</head>
+  </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen">
 
 <!-- ===== HEADER ===== -->
@@ -140,10 +139,6 @@
   <a id="footer-link" href="#" target="_blank" rel="noopener" class="hidden text-gray-400 hover:text-gray-600"></a>
 </footer>
 
-<script type="module">
-  import { AdminApp } from '/js/admin/AdminApp.js';
-  const app = new AdminApp();
-  app.init();
-</script>
+<script type="module" src="/src/admin.ts"></script>
 </body>
 </html>
