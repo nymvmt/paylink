@@ -1,4 +1,6 @@
 {
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     { "source": "/api/config", "destination": "/api/config.js" },
     { "source": "/api/confirm", "destination": "/api/confirm.js" },

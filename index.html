@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Paylink</title>
-  <script src="https://cdn.tailwindcss.com"></script>
   <script src="//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
   <style>
     #cart-drawer { transition: transform 0.3s ease; }
@@ -213,11 +212,7 @@
   </div>
 </footer>
 
-<script type="module">
-  import { AppController } from '/js/store/AppController.js';
-  const app = new AppController();
-  app.init();
-</script>
 <script src="https://js.tosspayments.com/v1/payment"></script>
+<script type="module" src="/src/main.ts"></script>
 </body>
 </html>
