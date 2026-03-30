@@ -9,9 +9,24 @@ export class ProductService {
   private loading: boolean = false;
   private observer: IntersectionObserver | null = null;
 
+  private _showSkeletons(): void {
+    const grid = document.getElementById('shop-grid')!;
+    const card = `<div data-skeleton>
+      <div class="aspect-square rounded-xl overflow-hidden mb-2 skeleton"></div>
+      <div class="h-4 rounded skeleton mb-1.5 w-3/4"></div>
+      <div class="h-3 rounded skeleton w-1/2"></div>
+    </div>`;
+    grid.insertAdjacentHTML('beforeend', Array(PAGE_SIZE).fill(card).join(''));
+  }
+
+  private _removeSkeletons(): void {
+    document.getElementById('shop-grid')!.querySelectorAll('[data-skeleton]').forEach(el => el.remove());
+  }
+
   async fetchNextPage(brandId: string): Promise<void> {
     if (this.done || this.loading) return;
     this.loading = true;
+    if (this.page === 0) this._showSkeletons();
     const from = this.page * PAGE_SIZE;
     const { data, error } = await supabase.from('products').select('*')
       .eq('owner_id', brandId)
@@ -20,6 +35,7 @@ export class ProductService {
       .order('created_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
     this.loading = false;
+    this._removeSkeletons();
     if (error) { console.error('[shop]', error); return; }
     const grid = document.getElementById('shop-grid')!;
     if (!data || data.length === 0) {
